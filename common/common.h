@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,9 +13,28 @@ static void *add_long_to_ptr(void *ptr, long val)
    & pasting code from libc itself.  */
 static void *skip_ulp_redirect_insns(void *func)
 {
+  /* Check if function contain the jump trampoline.  */
+
+  const unsigned char *as_bytes = (const char *) func;
+  if (as_bytes[0] != 0xEB) {
+    /* JMP rel8 opcode not found. Function definitely not livepatched.
+       Check if it is livepatchable*/
+
+    if (as_bytes[1] == 0x90) {
+      if (as_bytes [0] == 0x90 || as_bytes[0] == 0x66) {
+        printf("Function not livepatched\n");
+        goto add;
+      }
+    }
+
+    printf("Function not livepatchable. Patching it would break the application\n");
+    abort();
+  }
+
+  printf("Livepatched\n");
   /* On x86_64, the JMP insns used for redirecting the old function
      into the new one takes 2 bytes.  So add 2 bytes to skip it.  */
-
+add:
   return add_long_to_ptr(func, 2L);
 }
 

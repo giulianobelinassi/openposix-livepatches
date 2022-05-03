@@ -6,15 +6,16 @@
 #include <unistd.h>
 #include <gnu/lib-names.h>
 
-typedef typeof(access) access_func_t;
+typedef typeof(access) func_t;
 
 int access_lp(const char *pathname, int mode)
 {
   void *libc_handle = dlopen(LIBC_SO, RTLD_LAZY);
-  access_func_t *access_ptr =  dlsym(libc_handle, "access");
-  access_ptr = skip_ulp_redirect_insns(access_ptr);
-  printf("Livepatched\n");
+  func_t *func_ptr =  dlsym(libc_handle, "access");
+  func_ptr = skip_ulp_redirect_insns(func_ptr);
 
-  int ret = access_ptr(pathname, mode);
+  int ret = func_ptr(pathname, mode);
+
   dlclose(libc_handle);
+  return ret;
 }
