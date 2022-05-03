@@ -1,0 +1,4 @@
+CONTAINER
+@/lib64/libc.so.6
+strdup:strdup_lp
+LP_FUNC:LP_FUNC_lp

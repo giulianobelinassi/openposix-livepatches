@@ -6,6 +6,7 @@
 *.ko
 *.obj
 *.elf
+*.so
 
 # Linker output
 *.ilk
@@ -50,3 +51,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Generated livepatch metadata
+*.dsc
+
+# Generated executables used for testing
+*/test
