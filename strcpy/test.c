@@ -13,8 +13,9 @@ void sig_handler(int signum)
     gate = true;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+  char buffer[64];
   signal(SIGUSR1, sig_handler);
 
   printf("Waiting for SIGUSR1\n");
@@ -23,10 +24,12 @@ int main()
 
   printf("strdup(NULL): %s\n", strdup(NULL));
 
-  if (access("/lib64/libc.so.6", F_OK) != -1) {
-    printf("File found\n");
+  strcpy(buffer, argv[0]);
+  if (!strcmp(buffer, argv[0])) {
+    printf("Copy successful\n");
   } else {
-    printf("File not found\n");
+    printf("Copy unsuccessful\n");
+    return 1;
   }
 
   return 0;

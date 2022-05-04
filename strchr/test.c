@@ -2,15 +2,16 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <signal.h>
 #include <stdbool.h>
+#include <signal.h>
 
 static volatile bool gate = false;
 
 void sig_handler(int signum)
 {
-  if (signum == SIGUSR1)
+  if (signum == SIGUSR1) {
     gate = true;
+  }
 }
 
 int main()
@@ -22,11 +23,12 @@ int main()
     usleep(1000);
 
   printf("strdup(NULL): %s\n", strdup(NULL));
+  const char *str = strchr("u/a/b/c", '/');
 
-  if (access("/lib64/libc.so.6", F_OK) != -1) {
-    printf("File found\n");
+  if (str) {
+    printf("Found\n");
   } else {
-    printf("File not found\n");
+    printf("Not found\n");
   }
 
   return 0;
