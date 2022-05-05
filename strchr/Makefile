@@ -1,2 +1,2 @@
-LP_FUNC=strchr
+NAME=strchr
 include ../common/Makefile.common

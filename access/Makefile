@@ -1,2 +1,2 @@
-LP_FUNC=access
+NAME=access
 include ../common/Makefile.common

@@ -2,20 +2,14 @@ CC = gcc
 
 INCLUDES = -I../common/
 CFLAGS = $(INCLUDES) -fPIC -fpatchable-function-entry=16,14 -g3
-LDFLAGS= -ldl
+LDFLAGS= -ldl -lpthread
 
-all: test $(LP_FUNC)_livepatch1.so
+all: test libc_livepatch1.so
 
 test: test.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
-$(LP_FUNC)_livepatch1.dsc: ../common/common_livepatch1.in
-	cp $< $@
-	sed -i $@ -e 's@CONTAINER@./$(LP_FUNC)_livepatch1.so@'
-	sed -i $@ -e 's@LP_FUNC@$(LP_FUNC)@'
-	sed -i $@ -e 's@LP_FUNC@$(LP_FUNC)@'
-
-$(LP_FUNC)_livepatch1.so:$(LP_FUNC)_livepatch1.o $(LP_FUNC)_livepatch1.dsc
+%.so: %.o %.dsc
 	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
 	ulp packer $(word 2,$^)
 
@@ -24,10 +18,10 @@ $(LP_FUNC)_livepatch1.so:$(LP_FUNC)_livepatch1.o $(LP_FUNC)_livepatch1.dsc
 
 .PHONY: clean check
 clean:
-	rm -rf test *.o *.so *.dsc
+	rm -rf test *.o *.so
 
 .ONESHELL:
-check: test $(LP_FUNC)_livepatch1.so
+check: test libc_livepatch1.so
 	@LIBPULP_PATH=/usr/local/lib64/libpulp.so; \
 	if [ ! -f "$${LIBPULP_PATH}" ]; then \
 		LIBPULP_PATH=/usr/lib64/libpulp.so; \
@@ -43,15 +37,23 @@ check: test $(LP_FUNC)_livepatch1.so
 	LD_PRELOAD=$${LIBPULP_PATH} ./test > /dev/null &
 	pid=$$! ; \
 	sleep 0.1; \
-	ulp trigger -q -p $${pid} $(LP_FUNC)_livepatch1.so; \
-	if [ $$? -ne 0 ]; then \
-		echo "ERROR: Test failure"; \
+	if [ -f libc_livepatch1.so ]; then \
+		ulp trigger -q -p $${pid} libc_livepatch1.so
+		if [ $$? -ne 0 ]; then \
+			echo "ERROR: Test failure"; \
+		fi; \
+	fi; \
+	if [ -f libpthread_livepatch1.so ]; then \
+		ulp trigger -q -p $${pid} libpthread_livepatch1.so
+		if [ $$? -ne 0 ]; then \
+			echo "ERROR: Test failure"; \
+		fi; \
 	fi; \
 	kill -s 10 $${pid}; \
 	wait $${pid}; \
 	if [ $$? -ne 0 ]; then \
-		echo "FAIL: $(word 2,$^)"; \
+		echo "FAIL: $(NAME)"; \
 		exit 1; \
 	fi; \
-	echo "SUCCESS: $(word 2,$^)";
+	echo "SUCCESS: $(NAME)";
 

@@ -1,2 +1,2 @@
-LP_FUNC=strcpy
+NAME=strcpy
 include ../common/Makefile.common
