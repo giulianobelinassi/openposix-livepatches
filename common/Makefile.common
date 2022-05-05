@@ -37,24 +37,15 @@ check: test libc_livepatch1.so
 	LD_PRELOAD=$${LIBPULP_PATH} ./test > /dev/null &
 	pid=$$! ; \
 	sleep 0.1; \
-	if [ -f libc_livepatch1.so ]; then \
-		ulp trigger -q -p $${pid} libc_livepatch1.so
-		if [ $$? -ne 0 ]; then \
-			echo "ERROR: Test failure"; \
+	PATCHES="libc_livepatch1.so libpthread_livepatch1.so librt_livepatch1.so"; \
+	for patch in $${PATCHES}; do \
+		if [ -f $$patch ]; then \
+			ulp trigger -q -p $${pid} $$patch
+			if [ $$? -ne 0 ]; then \
+				echo "FAIL: apply failure: $$patch"; \
+			fi; \
 		fi; \
-	fi; \
-	if [ -f libpthread_livepatch1.so ]; then \
-		ulp trigger -q -p $${pid} libpthread_livepatch1.so
-		if [ $$? -ne 0 ]; then \
-			echo "ERROR: Test failure"; \
-		fi; \
-	fi; \
-	if [ -f librt_livepatch1.so ]; then \
-		ulp trigger -q -p $${pid} librt_livepatch1.so
-		if [ $$? -ne 0 ]; then \
-			echo "ERROR: Test failure"; \
-		fi; \
-	fi; \
+	done; \
 	kill -s 10 $${pid}; \
 	wait $${pid}; \
 	if [ $$? -ne 0 ]; then \
