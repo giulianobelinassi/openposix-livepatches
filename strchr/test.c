@@ -25,7 +25,7 @@ int main()
   printf("strdup(NULL): %s\n", strdup(NULL));
   const char *str = strchr("u/a/b/c", '/');
 
-  if (str) {
+  if (!strcmp(str, "/a/b/c")) {
     printf("Found\n");
   } else {
     printf("Not found\n");
