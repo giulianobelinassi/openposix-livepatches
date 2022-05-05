@@ -2,7 +2,7 @@ CC = gcc
 
 INCLUDES = -I../common/
 CFLAGS = $(INCLUDES) -fPIC -fpatchable-function-entry=16,14 -g3
-LDFLAGS= -ldl -lpthread
+LDFLAGS= -ldl -lpthread -lrt
 
 all: test libc_livepatch1.so
 
@@ -18,7 +18,7 @@ test: test.c
 
 .PHONY: clean check
 clean:
-	rm -rf test *.o *.so
+	rm -rf test *.o *.so *.swp
 
 .ONESHELL:
 check: test libc_livepatch1.so
@@ -45,6 +45,12 @@ check: test libc_livepatch1.so
 	fi; \
 	if [ -f libpthread_livepatch1.so ]; then \
 		ulp trigger -q -p $${pid} libpthread_livepatch1.so
+		if [ $$? -ne 0 ]; then \
+			echo "ERROR: Test failure"; \
+		fi; \
+	fi; \
+	if [ -f librt_livepatch1.so ]; then \
+		ulp trigger -q -p $${pid} librt_livepatch1.so
 		if [ $$? -ne 0 ]; then \
 			echo "ERROR: Test failure"; \
 		fi; \
