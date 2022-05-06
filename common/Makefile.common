@@ -4,7 +4,9 @@ INCLUDES = -I../common/
 CFLAGS = $(INCLUDES) -fPIC -fpatchable-function-entry=16,14 -g3
 LDFLAGS= -ldl -lpthread -lrt
 
-all: test libc_livepatch1.so
+TARGET=$(LIVEPATCHES) test
+
+all: $(TARGET)
 
 test: test.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
@@ -37,12 +39,12 @@ check: test libc_livepatch1.so
 	LD_PRELOAD=$${LIBPULP_PATH} ./test > /dev/null &
 	pid=$$! ; \
 	sleep 0.1; \
-	PATCHES="libc_livepatch1.so libpthread_livepatch1.so librt_livepatch1.so"; \
-	for patch in $${PATCHES}; do \
+	for patch in $(LIVEPATCHES); do \
 		if [ -f $$patch ]; then \
 			ulp trigger -q -p $${pid} $$patch
 			if [ $$? -ne 0 ]; then \
 				echo "FAIL: apply failure: $$patch"; \
+				exit 1
 			fi; \
 		fi; \
 	done; \
@@ -54,3 +56,11 @@ check: test libc_livepatch1.so
 	fi; \
 	echo "SUCCESS: $(NAME)";
 
+.ONESHELL:
+install: $(LIVEPATCHES)
+	install -d $(DESTDIR)/usr/lib64/openposix-livepatches/$(NAME); \
+	install $^ $(DESTDIR)/usr/lib64/openposix-livepatches/$(NAME);
+
+.ONESHELL:
+uninstall:
+	rm -rf $(DESTDIR)/usr/lib64/openposix-livepatches/$(NAME)

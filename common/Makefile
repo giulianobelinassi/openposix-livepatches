@@ -7,3 +7,5 @@ clean:
 	
 
 check:
+
+install:

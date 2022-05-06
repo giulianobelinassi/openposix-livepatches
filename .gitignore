@@ -54,3 +54,6 @@ dkms.conf
 
 # Generated executables used for testing
 */test
+
+# Generated packages
+*.tar.*
