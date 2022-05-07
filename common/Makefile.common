@@ -24,19 +24,16 @@ clean:
 
 .ONESHELL:
 check: test libc_livepatch1.so
-	@LIBPULP_PATH=/usr/local/lib64/libpulp.so; \
+	LIBPULP_PATH=/usr/lib64/libpulp.so.0; \
 	if [ ! -f "$${LIBPULP_PATH}" ]; then \
-		LIBPULP_PATH=/usr/lib64/libpulp.so; \
-	fi; \
-	if [ ! -f "$${LIBPULP_PATH}" ]; then \
-		LIBPULP_PATH=/lib64/libpulp.so; \
+		LIBPULP_PATH=/usr/local/lib64/libpulp.so; \
 	fi; \
 	if [ ! -f "$${LIBPULP_PATH}" ]; then \
 		echo "ERROR: libpulp not found"; \
 		exit 1; \
 	fi; \
 	\
-	LD_PRELOAD=$${LIBPULP_PATH} ./test > /dev/null &
+	LD_PRELOAD=$${LIBPULP_PATH} ./test &
 	pid=$$! ; \
 	sleep 0.1; \
 	for patch in $(LIVEPATCHES); do \
@@ -44,7 +41,7 @@ check: test libc_livepatch1.so
 			ulp trigger -q -p $${pid} $$patch
 			if [ $$? -ne 0 ]; then \
 				echo "FAIL: apply failure: $$patch"; \
-				exit 1
+				exit 1; \
 			fi; \
 		fi; \
 	done; \
