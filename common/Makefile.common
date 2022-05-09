@@ -15,16 +15,32 @@ test: test.c
 	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
 	ulp packer $(word 2,$^)
 
+.ONESHELL:
+%.dsc: %.in
+	GLIBC_VERSION=$$(ldd --version | head -n 1 | awk '{print $$4}')
+	GLIBC_MAJOR=$${GLIBC_VERSION%.*}
+	GLIBC_MINOR=$${GLIBC_VERSION##*.}
+	cp $< $@
+	if [ "$$GLIBC_MAJOR" -eq 2 ] && [ "$$GLIBC_MINOR" -lt 34 ]; then
+		sed -i $@ -e s@LIBC@/lib64/libc.so.6@;
+		sed -i $@ -e s@LIBPTHREAD@/lib64/libpthread.so.0@;
+		sed -i $@ -e s@LIBRT@/lib64/librt.so.1@;
+	else
+		sed -i $@ -e s@LIBC@/lib64/libc.so.6@;
+		sed -i $@ -e s@LIBPTHREAD@/lib64/libc.so.6@;
+		sed -i $@ -e s@LIBRT@/lib64/libc.so.6@;
+	fi;
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 
 .PHONY: clean check
 clean:
-	rm -rf test *.o *.so *.swp
+	rm -rf test *.o *.so *.swp *.dsc
 
 .ONESHELL:
 check: test libc_livepatch1.so
-	LIBPULP_PATH=/usr/lib64/libpulp.so.0; \
+	@LIBPULP_PATH=/usr/lib64/libpulp.so.0; \
 	if [ ! -f "$${LIBPULP_PATH}" ]; then \
 		LIBPULP_PATH=/usr/local/lib64/libpulp.so; \
 	fi; \
