@@ -6,7 +6,7 @@ LDFLAGS= -ldl -lpthread -lrt
 
 TARGET=$(LIVEPATCHES) test
 
-all: $(TARGET)
+all: $(TARGET) livepatchability
 
 test: test.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
@@ -33,6 +33,10 @@ test: test.c
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $^
+
+.PHONY: livepatchability
+livepatchability:
+	ulp livepatchable /lib64/libc.so.6
 
 .PHONY: clean check
 clean:
