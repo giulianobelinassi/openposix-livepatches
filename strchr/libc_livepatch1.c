@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-char *strchr_actual(const char *s, int c)
+const char *strchr_actual(const char *s, int c)
 {
   for (; *s != '\0'; s++) {
     if (*s == c) {
@@ -15,7 +15,7 @@ char *strchr_actual(const char *s, int c)
   return NULL;
 }
 
-char *strchr_lp()
+void *strchr_lp()
 {
   return strchr_actual;
 }

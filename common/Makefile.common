@@ -1,7 +1,7 @@
 CC = gcc
 
 INCLUDES = -I../common/
-CFLAGS = $(INCLUDES) -fPIC -fpatchable-function-entry=16,14 -g3
+CFLAGS = $(INCLUDES) -fPIC -fpatchable-function-entry=16,14 -g3 -O2
 LDFLAGS= -ldl -lpthread -lrt
 
 TARGET=$(LIVEPATCHES) test

@@ -47,7 +47,6 @@ static void *skip_ulp_redirect_insns(void *func)
     abort();
   }
 
-  printf("Livepatched\n");
   /* On x86_64, the JMP insns used for redirecting the old function
      into the new one takes 2 bytes.  So add 2 bytes to skip it.  */
 add:
