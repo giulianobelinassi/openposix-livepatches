@@ -4,11 +4,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-typedef typeof(strchr) func_t;
-
-char *strchr_lp(const char *s, int c)
+char *strchr_actual(const char *s, int c)
 {
-  func_t *func_ptr = skip_ulp_redirect_insns(strchr);
-  char *ret = func_ptr(s, c);
-  return ret;
+  for (; *s != '\0'; s++) {
+    if (*s == c) {
+      return s;
+    }
+  }
+
+  return NULL;
+}
+
+char *strchr_lp()
+{
+  return strchr_actual;
 }

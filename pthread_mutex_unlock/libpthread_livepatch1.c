@@ -8,10 +8,11 @@
 #include <gnu/lib-names.h>
 
 typedef typeof(pthread_mutex_lock) func_t;
+int __pthread_mutex_unlock(pthread_mutex_t *);
 
 int pthread_mutex_unlock_lp(pthread_mutex_t *lock)
 {
-  func_t *func_ptr = pthread_mutex_unlock;
+  func_t *func_ptr = __pthread_mutex_unlock;
   func_ptr = skip_ulp_redirect_insns(func_ptr);
 
   int ret = func_ptr(lock);
