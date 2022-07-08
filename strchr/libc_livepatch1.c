@@ -6,11 +6,14 @@
 
 const char *strchr_actual(const char *s, int c)
 {
-  for (; *s != '\0'; s++) {
+  if (!s)
+    return NULL;
+
+  do {
     if (*s == c) {
       return s;
     }
-  }
+  } while (*s++ != '\0');
 
   return NULL;
 }
