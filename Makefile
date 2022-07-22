@@ -1,4 +1,4 @@
-VERSION=0.4
+VERSION=0.5
 
 DIRS = $(sort $(dir $(wildcard */)))
 LIST = $(DIRS:/=)
@@ -23,7 +23,7 @@ $(CLEAN_LIST):
 	$(MAKE) -C $(word 2,$(subst -, ,$@)) clean
 
 $(CHECK_LIST):
-	$(MAKE) -C $(word 2,$(subst -, ,$@)) check
+	$(MAKE) -C $(word 2,$(subst -, ,$@)) check > /dev/null
 
 $(INSTALL_LIST):
 	$(MAKE) -C $(word 2,$(subst -, ,$@)) install
@@ -36,4 +36,5 @@ check: $(CHECK_LIST)
 install: $(INSTALL_LIST)
 
 dist: clean
-	tar cJf openposix-livepatches-$(VERSION).tar.xz --exclude=openposix-livepatches-$(VERSION).tar.xz *
+	tar cJf openposix-livepatches-$(VERSION).tar.xz --exclude=glibc \
+	--exclude=openposix-livepatches-$(VERSION).tar.xz *

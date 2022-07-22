@@ -1,3 +1,4 @@
 NAME=strchr
-LIVEPATCHES=libc_livepatch1.so
+PATCHES=libc
+
 include ../common/Makefile.common

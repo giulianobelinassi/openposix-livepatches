@@ -1,4 +1,4 @@
 NAME=pthread_mutex_lock
-LIVEPATCHES=libc_livepatch1.so libpthread_livepatch1.so
+PATCHES=libc libpthread
 
 include ../common/Makefile.common

@@ -6,6 +6,7 @@
 #include <aio.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <string.h>
 
 static volatile bool gate = false;
 
@@ -67,6 +68,7 @@ main(int argc, char *argv[])
   while (gate == false)
     usleep(1000);
 
+   puts(strdup(NULL));
    numReqs = 1;
 
    /* Allocate our arrays. */

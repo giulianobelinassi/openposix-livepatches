@@ -1,4 +1,4 @@
 NAME=aio_return
-LIVEPATCHES=libc_livepatch1.so librt_livepatch1.so
+PATCHES=libc librt
 
 include ../common/Makefile.common
