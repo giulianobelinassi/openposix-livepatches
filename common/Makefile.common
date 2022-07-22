@@ -1,6 +1,7 @@
 CC = gcc
 
-VERSIONS=2.31-150300.26.5 2.31-150300.31.2
+VERSION_DIRS=$(shell find ../glibc/* -type d)
+VERSIONS=$(shell basename -a $(VERSION_DIRS))
 LIVEPATCHES=$(foreach U,$(PATCHES), \
 									$(foreach V,$(VERSIONS),$(U)_$(V)_livepatch1.so) \
 								 )

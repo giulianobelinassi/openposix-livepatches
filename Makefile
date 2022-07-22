@@ -14,9 +14,13 @@ INSTALL_LIST = $(foreach word,$(LIST),install-$(word))
 .PHONY:clean
 .PHONY:dist
 
-all: $(LIST)
+all: download $(LIST)
 
-$(LIST):
+# Download libs
+download:
+	$(MAKE) -C glibc download
+
+$(LIST): download
 	$(MAKE) -C $@
 
 $(CLEAN_LIST):

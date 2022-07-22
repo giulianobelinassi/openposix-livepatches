@@ -1,10 +1,12 @@
-# Rules left empty on purpose. Nothing should be done here.
 
 all:
-	
+
+download:
+	./download.sh
 
 clean:
-	
+	rm -f *.rpm
+	rm -f -R -- */
 
 check:
 
