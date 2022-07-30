@@ -17,6 +17,11 @@ web_get()
   else
     wget -q --show-progress --no-check-certificate -O "$2" "$1"
   fi
+
+  if [ $? -eq 4 ]; then
+    echo Unable to download $1
+    exit 1
+  fi
 }
 
 get_version_from_package_name()
@@ -116,6 +121,7 @@ main()
     extract_libs_from_package "$package"
   done
 
+  rm -f *.rpm
   echo "Done."
 }
 

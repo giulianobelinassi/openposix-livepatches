@@ -14,20 +14,20 @@ INSTALL_LIST = $(foreach word,$(LIST),install-$(word))
 .PHONY:clean
 .PHONY:dist
 
-all: download $(LIST)
+all: $(LIST)
 
 # Download libs
 download:
 	$(MAKE) -C glibc download
 
-$(LIST): download
+$(LIST):
 	$(MAKE) -C $@
 
 $(CLEAN_LIST):
 	$(MAKE) -C $(word 2,$(subst -, ,$@)) clean
 
 $(CHECK_LIST):
-	$(MAKE) -C $(word 2,$(subst -, ,$@)) check > /dev/null
+	$(MAKE) -C $(word 2,$(subst -, ,$@)) check
 
 $(INSTALL_LIST):
 	$(MAKE) -C $(word 2,$(subst -, ,$@)) install
@@ -40,5 +40,5 @@ check: $(CHECK_LIST)
 install: $(INSTALL_LIST)
 
 dist: clean
-	tar cJf openposix-livepatches-$(VERSION).tar.xz --exclude=glibc \
+	tar cJf openposix-livepatches-$(VERSION).tar.xz \
 	--exclude=openposix-livepatches-$(VERSION).tar.xz *
