@@ -1,4 +1,4 @@
 libc_livepatch1.so
-@/lib64/libc.so.6
+@LIBC
 strdup:strdup_lp
 strchr:strchr_lp
