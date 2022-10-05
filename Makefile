@@ -1,4 +1,4 @@
-VERSION=0.5
+VERSION=0.6
 
 DIRS = $(sort $(dir $(wildcard */)))
 LIST = $(DIRS:/=)
