@@ -5,24 +5,13 @@
 #include <stdbool.h>
 #include <signal.h>
 
-static volatile bool gate = false;
-
-void sig_handler(int signum)
-{
-  if (signum == SIGUSR1) {
-    gate = true;
-  }
-}
+#include "common.h"
 
 int main()
 {
-  signal(SIGUSR1, sig_handler);
 
-  printf("Waiting for SIGUSR1\n");
-  while (gate == false)
-    usleep(1000);
+  wait_for_livepatch();
 
-  printf("strdup(NULL): %s\n", strdup(NULL));
   const char *str = strchr("u/a/b/c", '/');
   const char *str2 = strchr("", '\0');
 

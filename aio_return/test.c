@@ -7,14 +7,7 @@
 #include <signal.h>
 #include <stdbool.h>
 
-static volatile bool gate = false;
-
-void sig_handler(int signum)
-{
-  if (signum == SIGUSR1)
-    gate = !gate;
-}
-
+#include "common.h"
 
 #define BUF_SIZE 20     /* Size of buffers for read operations */
 
@@ -60,12 +53,7 @@ main(int argc, char *argv[])
    int numReqs;        /* Total number of queued I/O requests */
    int openReqs;       /* Number of I/O requests still in progress */
 
-  signal(SIGUSR1, sig_handler);
-
-  printf("Waiting for SIGUSR1\n");
-
-  while (gate == false)
-    usleep(1000);
+   wait_for_livepatch();
 
    numReqs = 1;
 

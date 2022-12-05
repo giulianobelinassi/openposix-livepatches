@@ -1,4 +1,5 @@
-VERSION=0.4
+VERSION=0.7
+PACKAGE_NAME=openposix-livepatches
 
 DIRS = $(sort $(dir $(wildcard */)))
 LIST = $(DIRS:/=)
@@ -17,7 +18,7 @@ INSTALL_LIST = $(foreach word,$(LIST),install-$(word))
 all: $(LIST)
 
 $(LIST):
-	$(MAKE) -C $@
+	$(MAKE) VERSION=$(VERSION) PACKAGE_NAME=$(PACKAGE_NAME) -C $@
 
 $(CLEAN_LIST):
 	$(MAKE) -C $(word 2,$(subst -, ,$@)) clean
@@ -26,7 +27,8 @@ $(CHECK_LIST):
 	$(MAKE) -C $(word 2,$(subst -, ,$@)) check
 
 $(INSTALL_LIST):
-	$(MAKE) -C $(word 2,$(subst -, ,$@)) install
+	$(MAKE) VERSION=$(VERSION) PACKAGE_NAME=$(PACKAGE_NAME) \
+		-C $(word 2,$(subst -, ,$@)) install
 
 clean: $(CLEAN_LIST)
 	rm -f openposix-livepatches-$(VERSION).tar.xz

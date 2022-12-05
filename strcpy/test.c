@@ -5,24 +5,13 @@
 #include <signal.h>
 #include <stdbool.h>
 
-static volatile bool gate = false;
-
-void sig_handler(int signum)
-{
-  if (signum == SIGUSR1)
-    gate = true;
-}
+#include "common.h"
 
 int main(int argc, char *argv[])
 {
   char buffer[64];
-  signal(SIGUSR1, sig_handler);
 
-  printf("Waiting for SIGUSR1\n");
-  while (gate == false)
-    usleep(1000);
-
-  printf("strdup(NULL): %s\n", strdup(NULL));
+  wait_for_livepatch();
 
   strcpy(buffer, argv[0]);
   if (!strcmp(buffer, argv[0])) {

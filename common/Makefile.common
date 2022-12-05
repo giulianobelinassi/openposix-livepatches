@@ -1,7 +1,8 @@
 CC = gcc
 
 INCLUDES = -I../common/
-CFLAGS = $(INCLUDES) -fPIC -fpatchable-function-entry=16,14 -g3 -O2
+CFLAGS = $(INCLUDES) -D_PACKAGE_NAME=$(PACKAGE_NAME) -D_VERSION=$(VERSION) \
+				 -fPIC -fpatchable-function-entry=16,14 -g3 -O2
 LDFLAGS= -ldl -lpthread -lrt
 
 TARGET=$(LIVEPATCHES) test
@@ -44,34 +45,28 @@ clean:
 
 .ONESHELL:
 check: test libc_livepatch1.so
-	@LIBPULP_PATH=/usr/lib64/libpulp.so.0; \
-	if [ ! -f "$${LIBPULP_PATH}" ]; then \
-		LIBPULP_PATH=/usr/local/lib64/libpulp.so; \
-	fi; \
-	if [ ! -f "$${LIBPULP_PATH}" ]; then \
-		echo "ERROR: libpulp not found"; \
-		exit 1; \
-	fi; \
-	\
+	LIBPULP_PATH=/usr/lib64/libpulp.so.0;
+	if [ ! -f "$${LIBPULP_PATH}" ]; then
+		LIBPULP_PATH=/usr/local/lib64/libpulp.so;
+	fi;
+	if [ ! -f "$${LIBPULP_PATH}" ]; then
+		echo "ERROR: libpulp not found";
+		exit 1;
+	fi;
 	LD_PRELOAD=$${LIBPULP_PATH} ./test &
-	pid=$$! ; \
-	sleep 0.1; \
-	for patch in $(LIVEPATCHES); do \
-		if [ -f $$patch ]; then \
-			ulp trigger -q -p $${pid} $$patch
-			if [ $$? -ne 0 ]; then \
-				echo "FAIL: apply failure: $$patch"; \
-				exit 1; \
-			fi; \
-		fi; \
-	done; \
-	kill -s 10 $${pid}; \
-	wait $${pid}; \
-	if [ $$? -ne 0 ]; then \
-		echo "FAIL: $(NAME)"; \
-		exit 1; \
-	fi; \
-	echo "SUCCESS: $(NAME)";
+	pid=$$! ;
+	sleep 0.1;
+	for patch in $(LIVEPATCHES); do
+		if [ -f $$patch ]; then
+			ulp trigger -p $${pid} $$patch | grep success
+		fi;
+	done;
+	wait $${pid};
+	if [ $$? -ne 0 ]; then
+		echo -e "\033[0;31mFAIL: $(NAME) \033[0m" 1>&2;
+		exit 1;
+	fi;
+	echo -e "\033[0;32mSUCCESS: $(NAME)\033[0m" 1>&2;
 
 .ONESHELL:
 install: $(LIVEPATCHES)

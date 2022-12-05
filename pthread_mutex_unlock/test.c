@@ -7,13 +7,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-static volatile bool gate = false;
-
-void sig_handler(int signum)
-{
-  if (signum == SIGUSR1)
-    gate = !gate;
-}
+#include "common.h"
 
 #define N 1000
 #define NUM_THREADS 4
@@ -38,14 +32,7 @@ void *threaded_func(void *args __attribute__((unused)))
 
 int main()
 {
-  signal(SIGUSR1, sig_handler);
-
-  printf("Waiting for SIGUSR1\n");
-
-  while (gate == false)
-    usleep(1000);
-
-  printf("strdup(NULL): %s\n", strdup(NULL));
+  wait_for_livepatch();
 
   pthread_t threads[NUM_THREADS];
 
