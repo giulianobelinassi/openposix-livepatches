@@ -12,7 +12,15 @@ all: $(TARGET) livepatchability
 test: test.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
-%.so: %.o %.dsc
+libc_$(GLIBC_PACKAGE_VER)_livepatch1.so: libc_livepatch1.o libc_livepatch1.dsc
+	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
+	ulp packer $(word 2,$^)
+
+libpthread_$(GLIBC_PACKAGE_VER)_livepatch1.so: libpthread_livepatch1.o libpthread_livepatch1.dsc
+	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
+	ulp packer $(word 2,$^)
+
+librt_$(GLIBC_PACKAGE_VER)_livepatch1.so: librt_livepatch1.o librt_livepatch1.dsc
 	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
 	ulp packer $(word 2,$^)
 
@@ -22,6 +30,7 @@ test: test.c
 	GLIBC_MAJOR=$${GLIBC_VERSION%.*}
 	GLIBC_MINOR=$${GLIBC_VERSION##*.}
 	cp $< $@
+	sed -i $@ -e s@GLIBCVER@$(GLIBC_PACKAGE_VER)@;
 	if [ "$$GLIBC_MAJOR" -eq 2 ] && [ "$$GLIBC_MINOR" -lt 34 ]; then
 		sed -i $@ -e s@LIBC@/lib64/libc.so.6@;
 		sed -i $@ -e s@LIBPTHREAD@/lib64/libpthread.so.0@;
@@ -44,7 +53,7 @@ clean:
 	rm -rf test *.o *.so *.swp *.dsc
 
 .ONESHELL:
-check: test libc_livepatch1.so
+check: test libc_$(GLIBC_PACKAGE_VER)_livepatch1.so
 	LIBPULP_PATH=/usr/lib64/libpulp.so.0;
 	if [ ! -f "$${LIBPULP_PATH}" ]; then
 		LIBPULP_PATH=/usr/local/lib64/libpulp.so;

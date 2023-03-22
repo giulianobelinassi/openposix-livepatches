@@ -1,4 +1,4 @@
-VERSION=0.7
+VERSION=0.8
 PACKAGE_NAME=openposix-livepatches
 
 DIRS = $(sort $(dir $(wildcard */)))
