@@ -12,6 +12,15 @@ all: $(TARGET) livepatchability
 test: test.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
+libc.so.6.json: /lib64/libc.so.6
+	ulp extract $^ -o $@
+
+libpthread.so.0.json: /lib64/libpthread.so.0
+	ulp extract $^ -o $@
+
+librt.so.1.json: /lib64/librt.so.1
+	ulp extract $^ -o $@
+
 libc_$(GLIBC_PACKAGE_VER)_livepatch1.so: libc_livepatch1.o libc_livepatch1.dsc
 	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
 	ulp packer $(word 2,$^)
@@ -25,20 +34,20 @@ librt_$(GLIBC_PACKAGE_VER)_livepatch1.so: librt_livepatch1.o librt_livepatch1.ds
 	ulp packer $(word 2,$^)
 
 .ONESHELL:
-%.dsc: %.in
+%.dsc: %.in libc.so.6.json libpthread.so.0.json librt.so.1.json
 	GLIBC_VERSION=$$(ldd --version | head -n 1 | awk '{print $$4}')
 	GLIBC_MAJOR=$${GLIBC_VERSION%.*}
 	GLIBC_MINOR=$${GLIBC_VERSION##*.}
 	cp $< $@
 	sed -i $@ -e s@GLIBCVER@$(GLIBC_PACKAGE_VER)@;
 	if [ "$$GLIBC_MAJOR" -eq 2 ] && [ "$$GLIBC_MINOR" -lt 34 ]; then
-		sed -i $@ -e s@LIBC@/lib64/libc.so.6@;
-		sed -i $@ -e s@LIBPTHREAD@/lib64/libpthread.so.0@;
-		sed -i $@ -e s@LIBRT@/lib64/librt.so.1@;
+		sed -i $@ -e s@LIBC@libc.so.6.json@;
+		sed -i $@ -e s@LIBPTHREAD@libpthread.so.0.json@;
+		sed -i $@ -e s@LIBRT@librt.so.1.json@;
 	else
-		sed -i $@ -e s@LIBC@/lib64/libc.so.6@;
-		sed -i $@ -e s@LIBPTHREAD@/lib64/libc.so.6@;
-		sed -i $@ -e s@LIBRT@/lib64/libc.so.6@;
+		sed -i $@ -e s@LIBC@libc.so.6.json@;
+		sed -i $@ -e s@LIBPTHREAD@libc.so.6.json@;
+		sed -i $@ -e s@LIBRT@libc.so.6.json@;
 	fi;
 
 %.o: %.c
@@ -50,7 +59,7 @@ livepatchability:
 
 .PHONY: clean check
 clean:
-	rm -rf test *.o *.so *.swp *.dsc
+	rm -rf test *.o *.so *.swp *.dsc *.json
 
 .ONESHELL:
 check: test libc_$(GLIBC_PACKAGE_VER)_livepatch1.so
