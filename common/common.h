@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 /* Avoid ugly casting on code.  */
 static void *add_long_to_ptr(void *ptr, long val)
@@ -16,16 +17,16 @@ static void *add_long_to_ptr(void *ptr, long val)
 # error "_VERSION or _PACKAGE_NAME not defined."
 #endif
 
-#define xstr(s) str(s)
-#define str(s) #s
+#define STRINGFY(s) #s
+#define STRINGFY_VALUE(s) STRINGFY(s)
 
-void *__libc_malloc(unsigned long size);
-void *__libc_calloc(unsigned long nmemb, unsigned long size);
+#define LP_SUFFIX "-lp-" STRINGFY_VALUE(_VERSION)
+#define ARR_LEN(v) (sizeof(v)/sizeof(*(v)))
 
-static typeof(malloc) *real_malloc = NULL;
+/* Declare the version function.  */
+extern const char *gnu_get_libc_version(void);
 
-#define ARR_LEN(x) (sizeof(x) / sizeof(*x))
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
+static typeof(gnu_get_libc_version) *real_gnu_get_libc_version = NULL;
 
 /* Skip the ULP prologue of a function, so that when 'func' is called it runs
    its original code.  This should save us from including libc headers and copy
@@ -70,46 +71,68 @@ add:
   return add_long_to_ptr(func, 2 + bias);
 }
 
-static const char *const lp_string = xstr(_PACKAGE_NAME) " " xstr(_VERSION);
-
-/* On a conversation with Martin Doucha we agreed on the following:
-   every livepatch should contain a patched version of malloc which returns
-   an string containing "openposix-livepatches VERSION".  Therefore, we
-   insert this function here.  */
-
-void *malloc_lp(size_t s)
+static const char *Build_Glibc_LP_Version_String(const char *str)
 {
+  if (str == NULL)
+    return NULL;
 
-  if (real_malloc == NULL) {
-    real_malloc = skip_ulp_redirect_insns(__libc_malloc);
+  /* Create a new string.  */
+  size_t size = strlen(str) + ARR_LEN(LP_SUFFIX) + 1;
+  char *new_ver_str = (char *) calloc(size, sizeof(char));
+  if (new_ver_str == NULL) {
+    /* If allocation failed, then return the original string.  */
+    return str;
   }
 
-  char *block = real_malloc(s);
-  if (block && s > 0) {
-    int lp_string_len = strlen(lp_string);
-    int copy_len = MIN(lp_string_len + 1, s);
+  /* Concatenate the suffix.  */
+  strcpy(new_ver_str, str);
+  strcat(new_ver_str, LP_SUFFIX);
 
-    memcpy(block, lp_string, copy_len);
-    block[s-1] = '\0';
+  return new_ver_str;
+}
+
+/* Override the gnu_get_libc_version to append a lp suffix to the original
+   version.  */
+const char *gnu_get_libc_version_lp(void)
+{
+  static volatile const char *new_ver_str;
+  const int _0 = 0;
+
+  /* Implement a lock without using the pthread functions.  We can't assume
+     that the function will be called only in single-threaded applications.
+     Hence if two threads called this function we have to be careful with the
+     state that thread #1 is building the string and thread #2 called this
+     function. In this case we have to block thread #2 until the string is
+     completed.  */
+  static atomic_int lock = 0;
+
+  /* Initialize variables.  */
+  if (atomic_compare_exchange_strong(&lock, &_0, 1)) {
+    const char *(*old_glibc_version)(void) = skip_ulp_redirect_insns(gnu_get_libc_version);
+    const char *str = old_glibc_version();
+    new_ver_str = Build_Glibc_LP_Version_String(str);
+    atomic_store(&lock, 2);
   }
 
-  return block;
+  while (atomic_load(&lock) < 2)
+    ; /* Wait for variable initialization to end.  */
+
+  return (const char *) new_ver_str;
 }
 
 /* Wait until the livepatch occurs.  */
 static void wait_for_livepatch(void)
 {
   while (1) {
-    char *block = malloc(32);
-    assert(block && "malloc(32) returned null.");
+    const char *version = gnu_get_libc_version();
+    const char *l = strchr(version, '-');
 
-    if (strcmp(block, lp_string) == 0) {
+    if (l && strcmp(l, LP_SUFFIX) == 0) {
       /* Livepatching occured.  */
-      free(block);
-      return;
+      puts(version);
+      break;
     }
 
     usleep(1000);
-    free(block);
   }
 }
