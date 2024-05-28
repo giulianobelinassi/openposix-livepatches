@@ -1,0 +1,4 @@
+libc_GLIBCVER_livepatch1.so
+@LIBC
+gnu_get_libc_version:gnu_get_libc_version_lp
+__libc_malloc:malloc_lp
