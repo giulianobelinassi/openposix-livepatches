@@ -73,7 +73,7 @@ check: test libc_$(GLIBC_PACKAGE_VER)_livepatch1.so
 	fi;
 	LD_PRELOAD=$${LIBPULP_PATH} ./test &
 	pid=$$! ;
-	sleep 0.1;
+	sleep 0.2;
 	for patch in $(LIVEPATCHES); do
 		if [ -f $$patch ]; then
 			ulp trigger -p $${pid} $$patch | grep success

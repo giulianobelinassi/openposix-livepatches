@@ -84,9 +84,18 @@ static const char *Build_Glibc_LP_Version_String(const char *str)
     return str;
   }
 
+  char *p;
+
   /* Concatenate the suffix.  */
-  strcpy(new_ver_str, str);
-  strcat(new_ver_str, LP_SUFFIX);
+  p = strcpy(new_ver_str, str);
+
+  /* Make sure the return values are sane.  */
+  assert(p == new_ver_str && "strcpy return value is broken");
+
+  p = strcat(new_ver_str, LP_SUFFIX);
+
+  /* Make sure the return values are sane.  */
+  assert(p == new_ver_str && "strcat return value is broken");
 
   return new_ver_str;
 }
