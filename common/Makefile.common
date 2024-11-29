@@ -50,6 +50,9 @@ librt_$(GLIBC_PACKAGE_VER)_livepatch1.so: librt_livepatch1.o librt_livepatch1.ds
 		sed -i $@ -e s@LIBRT@libc.so.6.json@;
 	fi;
 
+%.in:
+	./generate_in.sh $@
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 

@@ -77,7 +77,8 @@ static const char *Build_Glibc_LP_Version_String(const char *str)
     return NULL;
 
   /* Create a new string.  */
-  size_t size = strlen(str) + ARR_LEN(LP_SUFFIX) + 1;
+  size_t str_len = strlen(str);
+  size_t size = str_len + ARR_LEN(LP_SUFFIX) + 1;
   char *new_ver_str = (char *) calloc(size, sizeof(char));
   if (new_ver_str == NULL) {
     /* If allocation failed, then return the original string.  */
@@ -87,10 +88,10 @@ static const char *Build_Glibc_LP_Version_String(const char *str)
   char *p;
 
   /* Concatenate the suffix.  */
-  p = strcpy(new_ver_str, str);
+  p = memcpy(new_ver_str, str, str_len + 1);
 
   /* Make sure the return values are sane.  */
-  assert(p == new_ver_str && "strcpy return value is broken");
+  assert(p == new_ver_str && "memcpy return value is broken");
 
   p = strcat(new_ver_str, LP_SUFFIX);
 

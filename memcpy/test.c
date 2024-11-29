@@ -9,14 +9,20 @@
 
 #include "common.h"
 
+volatile char *str = "1234567890";
+
 int main(int argc, char *argv[])
 {
-  char buffer[64];
+  volatile char buffer[64];
+  void *p;
 
   wait_for_livepatch();
-  memcpy(buffer, "1234567890", 11);
+  if ((p = memcpy((char *)buffer, (char *)str, 11)) != buffer) {
+    printf("Incorrect return value: got 0x%lx, expected %lx\n", (unsigned long) p, (unsigned long) buffer);
+    return 2;
+  }
 
-  if (strcmp(buffer, "1234567890") == 0) {
+  if (strcmp((char *)buffer, (char *)str) == 0) {
     printf("buffer = %s\n", buffer);
     return 0;
   }
