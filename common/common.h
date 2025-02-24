@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <stdatomic.h>
+#include <sys/mman.h>
 
 /* Avoid ugly casting on code.  */
 static void *add_long_to_ptr(void *ptr, long val)
@@ -26,7 +27,7 @@ static void *add_long_to_ptr(void *ptr, long val)
 /* Declare the version function.  */
 extern const char *gnu_get_libc_version(void);
 
-static typeof(gnu_get_libc_version) *real_gnu_get_libc_version = NULL;
+#if defined(__x86_64__)
 
 /* Skip the ULP prologue of a function, so that when 'func' is called it runs
    its original code.  This should save us from including libc headers and copy
@@ -70,6 +71,97 @@ static void *skip_ulp_redirect_insns(void *func)
 add:
   return add_long_to_ptr(func, 2 + bias);
 }
+
+static void release_any_generated_code(void *func)
+{
+  /* x86_64 version do not need to release anything.  */
+  (void) func;
+}
+
+#elif defined(__powerpc64__)
+
+/* On powerpc64le we can't simply skip the redirect instructions, as this
+   platform have global and local entrypoints.  In the fist case, we actually
+   must make sure the global entrypoint is executed, so the way we do this is
+   actually copying the global entrypoint to a trampoline, and then this
+   trampoline redirects to the original function bypassing the redirect
+   instructions.*/
+static void *generate_trampoline_bypassing_redirect(void *function)
+{
+  /* Allocate a memory area where we will build our code.  */
+  void *page = mmap(NULL, 128, PROT_EXEC | PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+  /* Asm code boilerplate.  */
+  unsigned char asm_insn[] = {
+    0x22, 0x11, 0x20, 0x3d,   //  lis     r9,0x1122
+    0x44, 0x33, 0x29, 0x61,   //  ori     r9,r9,0x3344
+    0x66, 0x55, 0x40, 0x3d,   //  lis     r10,0x5566
+    0x88, 0x77, 0x4a, 0x61,   //  ori     r10,r10,0x7788
+    0x0e, 0x00, 0x2a, 0x79,   //  rldimi  r10,r9,32,0
+    0x78, 0x53, 0x4c, 0x7d,   //  mr      r12,r10
+    0x0c, 0x00, 0x4a, 0x39,   //  addi    r10,r10,12
+    0xa6, 0x03, 0x49, 0x7d,   //  mtctr   r12
+    0x00, 0x00, 0x00, 0x60,   //  nop
+    0x00, 0x00, 0x00, 0x60,   //  nop
+    0x20, 0x04, 0x80, 0x4e,   //  bctr
+  };
+
+  /* Assemble a jump to function from the `function` address.  */
+  asm_insn[12] = ((unsigned long)function & 0x00000000000000FF) >> 0;
+  asm_insn[13] = ((unsigned long)function & 0x000000000000FF00) >> 8;
+  asm_insn[8]  = ((unsigned long)function & 0x0000000000FF0000) >> 16;
+  asm_insn[9]  = ((unsigned long)function & 0x00000000FF000000) >> 24;
+  asm_insn[4]  = ((unsigned long)function & 0x000000FF00000000) >> 32;
+  asm_insn[5]  = ((unsigned long)function & 0x0000FF0000000000) >> 40;
+  asm_insn[0]  = ((unsigned long)function & 0x00FF000000000000) >> 48;
+  asm_insn[1]  = ((unsigned long)function & 0xFF00000000000000) >> 56;
+
+  /* Copy the global entrypoint to the offset where the 2 nops are.  */
+  memcpy(asm_insn + 32, function, 8);
+
+  /* Copy the complete code into the executable page and return it.  */
+  memcpy(page, asm_insn, sizeof(asm_insn));
+
+  return page;
+}
+
+static void *skip_ulp_redirect_insns(void *func)
+{
+  /* Check if func points to the global entrypoint.  */
+  unsigned int insn1, insn2;
+  unsigned int *func_4b = (unsigned int *) func;
+  insn1 = func_4b[0] & 0xFFFF0000, insn2 = func_4b[1] & 0xFFFF0000;
+
+  if (insn1 == 0x3C4C0000 && insn2 == 0x38420000) {
+    /* Function has global entrypoint.  */
+    return generate_trampoline_bypassing_redirect(func);
+  }
+  /* Skip redirect insn.  */
+  func_4b += 1;
+  return (void *) func_4b;
+}
+
+static void release_any_generated_code(void *func)
+{
+  /* Check if instructions ressemble the code we created.  */
+  const unsigned char cmp1[] = {0x20, 0x3d};
+  const unsigned char cmp2[] = {0x29, 0x61};
+  const unsigned char cmp3[] = {0x40, 0x3d};
+  const unsigned char cmp4[] = {0x4a, 0x61};
+
+  if (func != NULL &&
+      memcmp(func +  2, cmp1, 2) == 0 &&
+      memcmp(func +  6, cmp2, 2) == 0 &&
+      memcmp(func + 10, cmp3, 2) == 0 &&
+      memcmp(func + 14, cmp4, 2) == 0) {
+
+    /* Looks like so.  */
+    munmap(func, 128);
+  }
+}
+
+#endif
 
 static const char *Build_Glibc_LP_Version_String(const char *str)
 {
@@ -122,6 +214,7 @@ const char *gnu_get_libc_version_lp(void)
     const char *str = old_glibc_version();
     new_ver_str = Build_Glibc_LP_Version_String(str);
     atomic_store(&lock, 2);
+    release_any_generated_code(old_glibc_version);
   }
 
   while (atomic_load(&lock) < 2)

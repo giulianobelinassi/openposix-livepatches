@@ -16,5 +16,6 @@ int pthread_mutex_lock_lp(pthread_mutex_t *lock)
   func_ptr = skip_ulp_redirect_insns(func_ptr);
 
   int ret = func_ptr(lock);
+  release_any_generated_code(func_ptr);
   return ret;
 }
