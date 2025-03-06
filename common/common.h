@@ -123,6 +123,9 @@ static void *generate_trampoline_bypassing_redirect(void *function)
   /* Copy the complete code into the executable page and return it.  */
   memcpy(page, asm_insn, sizeof(asm_insn));
 
+  /* Insert necessary barriers due to writing code into memory.  */
+  asm ("dcbst 0, %0; sync; icbi 0,%0; sync; isync" :: "r" (page));
+
   return page;
 }
 
