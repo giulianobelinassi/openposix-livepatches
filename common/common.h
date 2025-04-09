@@ -12,6 +12,28 @@ static void *add_long_to_ptr(void *ptr, long val)
   return (void *) ((char *)ptr + val);
 }
 
+#define _CALL_OLD_FUNCTION(old_func)                        \
+  static typeof(old_func) *volatile func_ptr = NULL;        \
+  const int _0 = 0;                                         \
+                                                            \
+  static atomic_int __lock = 0;                             \
+                                                            \
+  if (atomic_compare_exchange_strong(&__lock, &_0, 1)) {    \
+    func_ptr = skip_ulp_redirect_insns(old_func);           \
+    atomic_store(&__lock, 2);                               \
+  }                                                         \
+                                                            \
+  while (atomic_load(&__lock) < 2)                          \
+    ;
+
+#define CALL_OLD_FUNCTION(old_func, ...)                    \
+  _CALL_OLD_FUNCTION(old_func)                              \
+  return func_ptr(__VA_ARGS__);
+
+#define CALL_OLD_FUNCTION_VOID(old_func, ...)               \
+  _CALL_OLD_FUNCTION(old_func)                              \
+  func_ptr(__VA_ARGS__);
+
 #define INSN_ENDBR64 0xf3, 0x0f, 0x1e, 0xfa
 
 #if !defined(_VERSION) || !defined(_PACKAGE_NAME)
@@ -72,13 +94,59 @@ add:
   return add_long_to_ptr(func, 2 + bias);
 }
 
-static void release_any_generated_code(void *func)
+#elif defined(__powerpc64__)
+
+/* Some openposix tests allocates all memory in the system for testing purposes
+   leaving no memory for our routines.  Hence do it on initialization.  */
+#define BYTES_PER_FUNC    128
+#define MAX_FUNCS         8
+
+static void *memarr = NULL;
+static unsigned memarr_top = 0;
+
+__attribute__((constructor))
+static void initialize(void)
 {
-  /* x86_64 version do not need to release anything.  */
-  (void) func;
+  /* Allocate a memory area where we will build our code.  */
+  if (memarr == NULL)
+    memarr = mmap(NULL, BYTES_PER_FUNC * MAX_FUNCS,
+                  PROT_EXEC | PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
+                  -1, 0);
+  memarr_top = 0;
+
+  if (memarr == (void *) -1U) {
+    perror("Unable to allocate memory");
+    abort();
+  }
+
+  memset(memarr, 0x00, BYTES_PER_FUNC * MAX_FUNCS);
 }
 
-#elif defined(__powerpc64__)
+__attribute__((destructor))
+static void deinitialize(void)
+{
+  if (memarr) {
+    munmap(memarr, BYTES_PER_FUNC * MAX_FUNCS);
+    memarr = NULL;
+  }
+
+  memarr_top = 0;
+}
+
+static void *get_area_to_write_code(void)
+{
+  void *ret = ((char *)memarr + memarr_top);
+  memarr_top += BYTES_PER_FUNC;
+
+  /* Check if we are going to get memory outside the area.  */
+  if (memarr_top > BYTES_PER_FUNC * MAX_FUNCS) {
+    fprintf(stderr, "Attempting to get more memory for JIT than allocated\n");
+    return NULL;
+  }
+
+  return ret;
+}
+
 
 /* On powerpc64le we can't simply skip the redirect instructions, as this
    platform have global and local entrypoints.  In the fist case, we actually
@@ -89,8 +157,7 @@ static void release_any_generated_code(void *func)
 static void *generate_trampoline_bypassing_redirect(void *function)
 {
   /* Allocate a memory area where we will build our code.  */
-  void *page = mmap(NULL, 128, PROT_EXEC | PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  void *page = get_area_to_write_code();
 
   /* Asm code boilerplate.  */
   unsigned char asm_insn[] = {
@@ -124,7 +191,7 @@ static void *generate_trampoline_bypassing_redirect(void *function)
   memcpy(page, asm_insn, sizeof(asm_insn));
 
   /* Insert necessary barriers due to writing code into memory.  */
-  asm ("dcbst 0, %0; sync; icbi 0,%0; sync; isync" :: "r" (page));
+  asm ("dcbst 0, %0; sync; icbi 0,%0; sync; isync" :: "r" (memarr));
 
   return page;
 }
@@ -143,25 +210,6 @@ static void *skip_ulp_redirect_insns(void *func)
   /* Skip redirect insn.  */
   func_4b += 1;
   return (void *) func_4b;
-}
-
-static void release_any_generated_code(void *func)
-{
-  /* Check if instructions ressemble the code we created.  */
-  const unsigned char cmp1[] = {0x20, 0x3d};
-  const unsigned char cmp2[] = {0x29, 0x61};
-  const unsigned char cmp3[] = {0x40, 0x3d};
-  const unsigned char cmp4[] = {0x4a, 0x61};
-
-  if (func != NULL &&
-      memcmp(func +  2, cmp1, 2) == 0 &&
-      memcmp(func +  6, cmp2, 2) == 0 &&
-      memcmp(func + 10, cmp3, 2) == 0 &&
-      memcmp(func + 14, cmp4, 2) == 0) {
-
-    /* Looks like so.  */
-    munmap(func, 128);
-  }
 }
 
 #endif
@@ -217,7 +265,6 @@ const char *gnu_get_libc_version_lp(void)
     const char *str = old_glibc_version();
     new_ver_str = Build_Glibc_LP_Version_String(str);
     atomic_store(&lock, 2);
-    release_any_generated_code(old_glibc_version);
   }
 
   while (atomic_load(&lock) < 2)
