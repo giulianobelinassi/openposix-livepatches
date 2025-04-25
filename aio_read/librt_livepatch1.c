@@ -7,11 +7,9 @@
 #include <errno.h>
 #include <aio.h>
 
-typedef typeof(aio_read) func_t;
-
 int aio_read64(struct aiocb *aiocbp);
 
 int aio_read_lp(struct aiocb *aiocbp)
 {
-  CALL_OLD_FUNCTION(aio_read64, aiocbp);
+  return (int) CALL_OLD_FUNCTION_1(aio_read64, aiocbp);
 }

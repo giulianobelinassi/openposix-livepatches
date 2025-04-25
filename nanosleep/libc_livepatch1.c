@@ -8,5 +8,5 @@ extern int __nanosleep(const struct timespec *duration,
 void nanosleep_lp(const struct timespec *duration,
                   struct timespec *rem)
 {
-  CALL_OLD_FUNCTION_VOID(__nanosleep, duration, rem);
+  CALL_OLD_FUNCTION_2(__nanosleep, duration, rem);
 }

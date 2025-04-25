@@ -1,7 +1,17 @@
 CC = gcc
 ARCH := $(shell uname -p)
+
+# Minor adaptation of example at https://stackoverflow.com/a/61634784/6838037
+#
+# Check if the C compiler support a certain flag.
+define check_cc_flag
+  $(shell echo 'int main() { return 0; }' | $(CC) $(1) -xc - 2>/dev/null && echo $(1))
+endef
+
+HAVE_SPLIT_PATCH_NOPS = $(call check_cc_flag,-msplit-patch-nops)
+
 ifeq ($(ARCH),ppc64le)
-CCARCHFLAGS=-fpatchable-function-entry=14,13
+CCARCHFLAGS=-fpatchable-function-entry=14,13 $(HAVE_SPLIT_PATCH_NOPS)
 else
 CCARCHFLAGS=-fpatchable-function-entry=16,14
 endif
