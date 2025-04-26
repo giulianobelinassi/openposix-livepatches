@@ -11,5 +11,5 @@ int __pthread_mutex_lock(pthread_mutex_t *);
 
 int pthread_mutex_lock_lp(pthread_mutex_t *lock)
 {
-  CALL_OLD_FUNCTION(__pthread_mutex_lock, lock);
+  return (int) CALL_OLD_FUNCTION_1(__pthread_mutex_lock, lock);
 }

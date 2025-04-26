@@ -11,5 +11,5 @@ ssize_t aio_return64(struct aiocb *);
 
 ssize_t aio_return_lp(struct aiocb *aiocbp)
 {
-  CALL_OLD_FUNCTION(aio_return64, aiocbp);
+  return (ssize_t) CALL_OLD_FUNCTION_1(aio_return64, aiocbp);
 }

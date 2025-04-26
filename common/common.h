@@ -5,36 +5,35 @@
 #include <unistd.h>
 #include <stdatomic.h>
 #include <sys/mman.h>
+#include <stdint.h>
+
+/* Macros for calling the old code.  */
+#define CALL_OLD_FUNCTION_0(func)   \
+  call_old_func(NULL, NULL, NULL, NULL, NULL, NULL, func)
+
+#define CALL_OLD_FUNCTION_1(func, arg1)   \
+  call_old_func((void *)(arg1), NULL, NULL, NULL, NULL, NULL, func)
+
+#define CALL_OLD_FUNCTION_2(func, arg1, arg2)   \
+  call_old_func((void *)arg1, (void *)(arg2), NULL, NULL, NULL, NULL, func)
+
+#define CALL_OLD_FUNCTION_3(func, arg1, arg2, arg3)   \
+  call_old_func((void *)(arg1), (void *)(arg2), (void *)(arg3), NULL, NULL, NULL, func)
+
+#define CALL_OLD_FUNCTION_4(func, arg1, arg2, arg3, arg4)   \
+  call_old_func((void *)(arg1), (void *)(arg2), (void *)(arg3), (void *)(arg4), NULL, NULL, func)
+
+#define CALL_OLD_FUNCTION_5(func, arg1, arg2, arg3, arg4, arg5)   \
+  call_old_func((void *)(arg1), (void *)(arg2), (void *)(arg3), (void *)(arg4), (void *)(arg5), NULL, func)
+
+#define CALL_OLD_FUNCTION_6(func, arg1, arg2, arg3, arg4, arg5, arg6)   \
+  call_old_func((void *)(arg1), (void *)(arg2), (void *)(arg3), (void *)(arg4), (void *)(arg5), (void*)(arg6), func)
 
 /* Avoid ugly casting on code.  */
 static void *add_long_to_ptr(void *ptr, long val)
 {
   return (void *) ((char *)ptr + val);
 }
-
-#define _CALL_OLD_FUNCTION(old_func)                        \
-  static typeof(old_func) *volatile func_ptr = NULL;        \
-  const int _0 = 0;                                         \
-                                                            \
-  static atomic_int __lock = 0;                             \
-                                                            \
-  if (atomic_compare_exchange_strong(&__lock, &_0, 1)) {    \
-    func_ptr = skip_ulp_redirect_insns(old_func);           \
-    atomic_store(&__lock, 2);                               \
-  }                                                         \
-                                                            \
-  while (atomic_load(&__lock) < 2)                          \
-    ;
-
-#define CALL_OLD_FUNCTION(old_func, ...)                    \
-  _CALL_OLD_FUNCTION(old_func)                              \
-  return func_ptr(__VA_ARGS__);
-
-#define CALL_OLD_FUNCTION_VOID(old_func, ...)               \
-  _CALL_OLD_FUNCTION(old_func)                              \
-  func_ptr(__VA_ARGS__);
-
-#define INSN_ENDBR64 0xf3, 0x0f, 0x1e, 0xfa
 
 #if !defined(_VERSION) || !defined(_PACKAGE_NAME)
 # error "_VERSION or _PACKAGE_NAME not defined."
@@ -51,10 +50,13 @@ extern const char *gnu_get_libc_version(void);
 
 #if defined(__x86_64__)
 
+#define INSN_ENDBR64 0xf3, 0x0f, 0x1e, 0xfa
+
 /* Skip the ULP prologue of a function, so that when 'func' is called it runs
    its original code.  This should save us from including libc headers and copy
    & pasting code from libc itself.  */
-static void *skip_ulp_redirect_insns(void *func)
+void *call_old_func(void *p1, void *p2, void *p3, void *p4,
+                           void *p5, void *p6, void *func)
 {
   /* Check if function contain the jump trampoline.  */
 
@@ -91,125 +93,62 @@ static void *skip_ulp_redirect_insns(void *func)
   /* On x86_64, the JMP insns used for redirecting the old function
      into the new one takes 2 bytes.  So add 2 bytes to skip it.  */
 add:
-  return add_long_to_ptr(func, 2 + bias);
+  void *(*ptr)(void *, void *, void *, void *, void *, void *) = add_long_to_ptr(func, 2 + bias);
+  return ptr(p1, p2, p3, p4, p5, p6);
 }
 
 #elif defined(__powerpc64__)
 
-/* Some openposix tests allocates all memory in the system for testing purposes
-   leaving no memory for our routines.  Hence do it on initialization.  */
-#define BYTES_PER_FUNC    128
-#define MAX_FUNCS         8
-
-static void *memarr = NULL;
-static unsigned memarr_top = 0;
-
-__attribute__((constructor))
-static void initialize(void)
-{
-  /* Allocate a memory area where we will build our code.  */
-  if (memarr == NULL)
-    memarr = mmap(NULL, BYTES_PER_FUNC * MAX_FUNCS,
-                  PROT_EXEC | PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
-                  -1, 0);
-  memarr_top = 0;
-
-  if (memarr == (void *) -1U) {
-    perror("Unable to allocate memory");
-    abort();
-  }
-
-  memset(memarr, 0x00, BYTES_PER_FUNC * MAX_FUNCS);
-}
-
-__attribute__((destructor))
-static void deinitialize(void)
-{
-  if (memarr) {
-    munmap(memarr, BYTES_PER_FUNC * MAX_FUNCS);
-    memarr = NULL;
-  }
-
-  memarr_top = 0;
-}
-
-static void *get_area_to_write_code(void)
-{
-  void *ret = ((char *)memarr + memarr_top);
-  memarr_top += BYTES_PER_FUNC;
-
-  /* Check if we are going to get memory outside the area.  */
-  if (memarr_top > BYTES_PER_FUNC * MAX_FUNCS) {
-    fprintf(stderr, "Attempting to get more memory for JIT than allocated\n");
-    return NULL;
-  }
-
-  return ret;
-}
-
-
-/* On powerpc64le we can't simply skip the redirect instructions, as this
-   platform have global and local entrypoints.  In the fist case, we actually
-   must make sure the global entrypoint is executed, so the way we do this is
-   actually copying the global entrypoint to a trampoline, and then this
-   trampoline redirects to the original function bypassing the redirect
-   instructions.*/
-static void *generate_trampoline_bypassing_redirect(void *function)
-{
-  /* Allocate a memory area where we will build our code.  */
-  void *page = get_area_to_write_code();
-
-  /* Asm code boilerplate.  */
-  unsigned char asm_insn[] = {
-    0x22, 0x11, 0x20, 0x3d,   //  lis     r9,0x1122
-    0x44, 0x33, 0x29, 0x61,   //  ori     r9,r9,0x3344
-    0x66, 0x55, 0x40, 0x3d,   //  lis     r10,0x5566
-    0x88, 0x77, 0x4a, 0x61,   //  ori     r10,r10,0x7788
-    0x0e, 0x00, 0x2a, 0x79,   //  rldimi  r10,r9,32,0
-    0x78, 0x53, 0x4c, 0x7d,   //  mr      r12,r10
-    0x0c, 0x00, 0x4a, 0x39,   //  addi    r10,r10,12
-    0xa6, 0x03, 0x49, 0x7d,   //  mtctr   r12
-    0x00, 0x00, 0x00, 0x60,   //  nop
-    0x00, 0x00, 0x00, 0x60,   //  nop
-    0x20, 0x04, 0x80, 0x4e,   //  bctr
-  };
-
-  /* Assemble a jump to function from the `function` address.  */
-  asm_insn[12] = ((unsigned long)function & 0x00000000000000FF) >> 0;
-  asm_insn[13] = ((unsigned long)function & 0x000000000000FF00) >> 8;
-  asm_insn[8]  = ((unsigned long)function & 0x0000000000FF0000) >> 16;
-  asm_insn[9]  = ((unsigned long)function & 0x00000000FF000000) >> 24;
-  asm_insn[4]  = ((unsigned long)function & 0x000000FF00000000) >> 32;
-  asm_insn[5]  = ((unsigned long)function & 0x0000FF0000000000) >> 40;
-  asm_insn[0]  = ((unsigned long)function & 0x00FF000000000000) >> 48;
-  asm_insn[1]  = ((unsigned long)function & 0xFF00000000000000) >> 56;
-
-  /* Copy the global entrypoint to the offset where the 2 nops are.  */
-  memcpy(asm_insn + 32, function, 8);
-
-  /* Copy the complete code into the executable page and return it.  */
-  memcpy(page, asm_insn, sizeof(asm_insn));
-
-  /* Insert necessary barriers due to writing code into memory.  */
-  asm ("dcbst 0, %0; sync; icbi 0,%0; sync; isync" :: "r" (memarr));
-
-  return page;
-}
-
-static void *skip_ulp_redirect_insns(void *func)
+/* Skip the ULP prologue of a function, so that when 'func' is called it runs
+   its original code.  This should save us from including libc headers and copy
+   & pasting code from libc itself.  */
+void *call_old_func(void *p1, void *p2, void *p3, void *p4,
+                           void *p5, void *p6, void *func)
 {
   /* Check if func points to the global entrypoint.  */
-  unsigned int insn1, insn2;
-  unsigned int *func_4b = (unsigned int *) func;
-  insn1 = func_4b[0] & 0xFFFF0000, insn2 = func_4b[1] & 0xFFFF0000;
+  uint32_t *func_4b = (uint32_t *) func;
+  uint32_t insn1 = func_4b[0], insn2 = func_4b[1];
+  register uintptr_t skipped_func = (uintptr_t) func;
 
-  if (insn1 == 0x3C4C0000 && insn2 == 0x38420000) {
-    /* Function has global entrypoint.  */
-    return generate_trampoline_bypassing_redirect(func);
+  /* Check if insn1 == addis r2, r12, CST16 and insn2 == addi, r2, r12, CST16.  */
+  if ((insn1 & 0xFFFF0000) == 0x3C4C0000 && (insn2 & 0xFFFF0000) == 0x38420000) {
+    int16_t ofsup = (int16_t)(insn1 & 0x0000FFFF);
+    int16_t oflow = (int16_t)(insn2 & 0x0000FFFF);
+
+    /* Emulate the addis and addi instruction.  */
+    long signedofs = 0x10000 * (long)ofsup + (long)oflow;
+
+    /* Sum with function to get the TOC pointer*/
+    register uintptr_t target_toc = (uintptr_t)func + signedofs;
+
+    /* Move the TOC pointer to r2.  */
+    asm volatile ("mr   %%r2, %0\n"  : : "r"(target_toc) : );
+
+    /* Move the function address to r12.  */
+    asm volatile ("mr   %%r12, %0\n" : : "r"(func) : "r12");
+
+    /* Skip the global entrypoint.  */
+    skipped_func += 8;
   }
-  /* Skip redirect insn.  */
-  func_4b += 1;
-  return (void *) func_4b;
+
+  /* Skip the ULP redirect instruction.  */
+  skipped_func += 4;
+
+  /* Move the call point address to mtctr so we can call it.  */
+  asm volatile ("mtctr  %0\n" : : "r"(skipped_func) : );
+
+  /* Make sure we have the parameters on registers.  */
+  asm ("mr   %%r3, %0\n"  : : "r"(p1) : );
+  asm ("mr   %%r4, %0\n"  : : "r"(p2) : );
+  asm ("mr   %%r5, %0\n"  : : "r"(p3) : );
+  asm ("mr   %%r6, %0\n"  : : "r"(p4) : );
+  asm ("mr   %%r7, %0\n"  : : "r"(p5) : );
+  asm ("mr   %%r8, %0\n"  : : "r"(p6) : );
+
+  /* Call the old function.  Return address will end up in r3 so even if we
+     don't return anything in C, the value will be there from the asm
+     perspective.  */
+  asm ("bctr\n" :::);
 }
 
 #endif
@@ -261,8 +200,7 @@ const char *gnu_get_libc_version_lp(void)
 
   /* Initialize variables.  */
   if (atomic_compare_exchange_strong(&lock, &_0, 1)) {
-    const char *(*old_glibc_version)(void) = skip_ulp_redirect_insns(gnu_get_libc_version);
-    const char *str = old_glibc_version();
+    const char *str = CALL_OLD_FUNCTION_0(gnu_get_libc_version);
     new_ver_str = Build_Glibc_LP_Version_String(str);
     atomic_store(&lock, 2);
   }
