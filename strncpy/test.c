@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
   wait_for_livepatch();
 
-  strncpy(buffer, argv[0], 64);
+  strncpy(buffer, argv[0], 64 - 1);
   printf(buffer);
   printf("\n");
   if (!strcmp(buffer, argv[0])) {

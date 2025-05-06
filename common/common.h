@@ -62,7 +62,9 @@ void *call_old_func(void *p1, void *p2, void *p3, void *p4,
 
   const unsigned char *as_bytes = (const unsigned char *) func;
   const unsigned char insn_endbr64[] = {INSN_ENDBR64};
-  int i, bias = 0;
+  unsigned int i;
+  int bias = 0;
+  void *(*ptr)(void *, void *, void *, void *, void *, void *);
 
   for (i = 0; i < sizeof(insn_endbr64); i++) {
     if (as_bytes[i] != insn_endbr64[i])
@@ -93,7 +95,7 @@ void *call_old_func(void *p1, void *p2, void *p3, void *p4,
   /* On x86_64, the JMP insns used for redirecting the old function
      into the new one takes 2 bytes.  So add 2 bytes to skip it.  */
 add:
-  void *(*ptr)(void *, void *, void *, void *, void *, void *) = add_long_to_ptr(func, 2 + bias);
+  ptr = add_long_to_ptr(func, 2 + bias);
   return ptr(p1, p2, p3, p4, p5, p6);
 }
 

@@ -28,6 +28,8 @@ void *threaded_func(void *args __attribute__((unused)))
     if (pthread_mutex_unlock(&mutex) != 0)
       abort();
   }
+
+  return NULL;
 }
 
 int main()

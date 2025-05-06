@@ -1,8 +1,20 @@
 VERSION=0.18
 PACKAGE_NAME=openposix-livepatches
 
-DIRS = $(sort $(dir $(wildcard */)))
-LIST = $(DIRS:/=)
+# List of directories containing tests
+LIST = \
+aio_read \
+aio_return \
+common \
+free \
+malloc \
+memcpy \
+nanosleep \
+pthread_mutex_lock \
+pthread_mutex_unlock \
+strchr \
+strcpy \
+strncpy \
 
 CLEAN_LIST = $(foreach word,$(LIST),clean-$(word))
 CHECK_LIST = $(foreach word,$(LIST),check-$(word))
@@ -11,7 +23,7 @@ INSTALL_LIST = $(foreach word,$(LIST),install-$(word))
 .PHONY:$(LIST)
 .PHONY:$(CLEAN_LIST)
 .PHONY:$(CHECK_LIST)
-.PHONY:$(INSTALLLIST)
+.PHONY:$(INSTALL_LIST)
 .PHONY:clean
 .PHONY:dist
 
