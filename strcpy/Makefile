@@ -1,5 +1,5 @@
 NAME=strcpy
-GLIBC_PACKAGE_VER=$(shell rpm -q glibc | grep -Eo "([0-9\.]+-[0-9]+(\.[0-9]+)*)")
+include ../common/glibc.common
 LIVEPATCHES=libc_$(GLIBC_PACKAGE_VER)_livepatch1.so
 include ../common/Makefile.common
 
