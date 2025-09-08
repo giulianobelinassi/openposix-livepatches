@@ -110,9 +110,9 @@ check: test libc_$(GLIBC_PACKAGE_VER)_livepatch1.so
 
 .ONESHELL:
 install: $(LIVEPATCHES)
-	install -d $(DESTDIR)/usr/lib64/openposix-livepatches/$(NAME); \
-	install $^ $(DESTDIR)/usr/lib64/openposix-livepatches/$(NAME);
+	install -d $(DESTDIR)/usr/lib64/openposix-livepatches/$(VERSION)/$(NAME)/; \
+	install $^ $(DESTDIR)/usr/lib64/openposix-livepatches/$(VERSION)/$(NAME);
 
 .ONESHELL:
 uninstall:
-	rm -rf $(DESTDIR)/usr/lib64/openposix-livepatches/$(NAME)
+	rm -rf $(DESTDIR)/usr/lib64/openposix-livepatches/$(VERSION)/$(NAME)

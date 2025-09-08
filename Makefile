@@ -1,4 +1,4 @@
-VERSION=0.19
+VERSION=0.20
 PACKAGE_NAME=openposix-livepatches
 
 # List of directories containing tests
