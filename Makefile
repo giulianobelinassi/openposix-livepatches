@@ -1,8 +1,9 @@
-VERSION=0.20
+VERSION=0.21
 PACKAGE_NAME=openposix-livepatches
 
 # List of directories containing tests
 LIST = \
+common \
 aio_read \
 aio_return \
 common \
@@ -43,11 +44,11 @@ $(INSTALL_LIST):
 		-C $(word 2,$(subst -, ,$@)) install
 
 clean: $(CLEAN_LIST)
-	rm -f openposix-livepatches-$(VERSION).tar.xz
+	rm -f $(PACKAGE_NAME)-$(VERSION).tar.xz
 
 check: $(CHECK_LIST)
 
 install: $(INSTALL_LIST)
 
 dist: clean
-	tar cJf openposix-livepatches-$(VERSION).tar.xz --exclude=openposix-livepatches-$(VERSION).tar.xz *
+	tar cJf $(PACKAGE_NAME)-$(VERSION).tar.xz --exclude=$(PACKAGE_NAME)-$(VERSION).tar.xz *

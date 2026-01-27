@@ -1,0 +1,76 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <unistd.h>
+#include <stdatomic.h>
+#include <sys/mman.h>
+#include <stdint.h>
+
+#ifndef GENERATE
+#error "This function should not be compiled."
+#endif
+
+/* Skip the ULP prologue of a function, so that when 'func' is called it runs
+   its original code.  This should save us from including libc headers and copy
+   & pasting code from libc itself.  Use visibility 'default' so calls go
+   through the global prologue.  */
+__attribute__ ((visibility ("default")))
+void *call_old_func(void *p1, void *p2, void *p3, void *p4,
+                           void *p5, void *p6, void *func)
+{
+  /* Check if func points to the global entrypoint.  */
+  uint32_t *func_4b = (uint32_t *) func;
+  uint32_t insn1 = func_4b[0], insn2 = func_4b[1];
+
+  /* This function TOC (r2) and r12 registers.  */
+  uintptr_t current_toc, current_r12;
+
+  /* Save current function TOC and r12.  */
+  asm volatile ("mr   %0, %%r2"  : "=r"(current_toc) : :);
+  asm volatile ("mr   %0, %%r12" : "=r"(current_r12) : :);
+
+  /* Function pointer.  Keep it in a register because there is a section in
+     which we can't access variables through TOC.  */
+  register uintptr_t skipped_func = (uintptr_t) func;
+
+  /* Check if insn1 == addis r2, r12, CST16 and insn2 == addi, r2, r12, CST16.  */
+  if ((insn1 & 0xFFFF0000) == 0x3C4C0000 && (insn2 & 0xFFFF0000) == 0x38420000) {
+    int16_t ofsup = (int16_t)(insn1 & 0x0000FFFF);
+    int16_t oflow = (int16_t)(insn2 & 0x0000FFFF);
+
+    /* Emulate the addis and addi instruction.  */
+    long signedofs = 0x10000 * (long)ofsup + (long)oflow;
+
+    /* Sum with function to get the TOC pointer*/
+    register uintptr_t target_toc = (uintptr_t)func + signedofs;
+
+    /* Move the target function TOC pointer to r2.  */
+    asm volatile ("mr   %%r2, %0"  : : "r"(target_toc) : );
+
+    /* Move the target function address to r12.  */
+    asm volatile ("mr   %%r12, %0" : : "r"(func) : "r12");
+
+    /* Skip the global entrypoint.  */
+    skipped_func += 8;
+  }
+
+  /* Skip the ULP redirect instruction.  */
+  skipped_func += 4;
+
+  /* Cast the `skipped_func` pointer into a callable function ptr.  */
+  /* NOTE: manual modification to the generated assembly code is necessary in
+     order for this code to work.  %r12 should point to the original function
+     pointer rather than the `skipped_func`, which gcc will always do.  */
+  void *(*callable_func)(void *, void *, void *, void *, void *, void *) =
+         (void *) skipped_func;
+
+  /* Call.  */
+  void *ret = callable_func(p1, p2, p3, p4, p5, p6);
+
+  /* Restore current function registers in case it was changed.  */
+  asm volatile ("mr   %%r2, %0"  : : "r"(current_toc) : );
+  asm volatile ("mr   %%r12, %0" : : "r"(current_r12) : "r12");
+
+  return ret;
+}

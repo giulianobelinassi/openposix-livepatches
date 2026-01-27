@@ -19,7 +19,7 @@ endif
 INCLUDES = -I../common/
 CFLAGS = $(INCLUDES) -D_PACKAGE_NAME=$(PACKAGE_NAME) -D_VERSION=$(VERSION) \
 				 -fPIC $(CCARCHFLAGS) -g3 -O2
-LDFLAGS= -ldl -lpthread -lrt
+LDFLAGS= -ldl -lpthread -lrt -Wl,--whole-archive -L../common -l:libcommon.a -Wl,--no-whole-archive
 
 TARGET=$(LIVEPATCHES) test
 
